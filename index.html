@@ -1,8 +1,622 @@
-renk-korlugu-testi/
-├── index.html
-├── manifest.json
-├── sw.js
-├── .nojekyll
-└── icons/
-    ├── icon-192.png
-    └── icon-512.png
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#1a1a2e" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Renk Testi" />
+  <title>Renk Körlüğü Testi</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <style>
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body {
+      margin: 0; padding: 0; height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #1a1a2e; color: #eaeaea;
+      overflow: hidden;
+      touch-action: manipulation;
+      -webkit-user-select: none; user-select: none;
+      overscroll-behavior: none;
+    }
+    #app {
+      display: flex; flex-direction: column;
+      height: 100vh; height: 100dvh;
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    }
+    header {
+      padding: 14px 18px; text-align: center;
+      background: linear-gradient(135deg, #16213e, #0f3460);
+      border-bottom: 1px solid #2a2a4a;
+      flex-shrink: 0;
+    }
+    header h1 { margin: 0; font-size: 1.15rem; letter-spacing: 0.5px; }
+    header .sub { font-size: 0.72rem; color: #8a8ab0; margin-top: 3px; }
+
+    .progress-wrap { padding: 10px 18px 4px; flex-shrink: 0; }
+    .progress-bar {
+      height: 8px; background: #2a2a4a; border-radius: 4px; overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%; width: 0%;
+      background: linear-gradient(90deg, #4e9af1, #9b5de5);
+      transition: width 0.4s ease;
+    }
+    .step-label { font-size: 0.75rem; color: #8a8ab0; text-align: center; margin-top: 4px; }
+
+    main {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 10px; overflow-y: auto; min-height: 0;
+    }
+
+    #plate-container {
+      width: min(82vw, 82vh, 420px);
+      height: min(82vw, 82vh, 420px);
+      position: relative;
+      border-radius: 50%;
+      background: #f4f4f4;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+      flex-shrink: 0;
+    }
+    #plate-svg { width: 100%; height: 100%; display: block; border-radius: 50%; }
+
+    .question-text {
+      margin-top: 18px; font-size: 1rem; text-align: center;
+      color: #cfcfe8; padding: 0 20px;
+    }
+    .hidden-target {
+      position: absolute; border-radius: 50%;
+      cursor: pointer; z-index: 5;
+    }
+
+    .input-row {
+      display: flex; gap: 10px; margin-top: 18px; width: 100%;
+      max-width: 320px; padding: 0 10px;
+    }
+    .input-row input {
+      flex: 1; padding: 14px; font-size: 1.2rem; text-align: center;
+      border-radius: 12px; border: 2px solid #3a3a5a; background: #22223a;
+      color: #fff; outline: none;
+    }
+    .input-row input:focus { border-color: #4e9af1; }
+    .btn {
+      padding: 14px 22px; font-size: 1rem; font-weight: 600;
+      border: none; border-radius: 12px; cursor: pointer;
+      background: linear-gradient(135deg, #4e9af1, #9b5de5); color: #fff;
+      transition: transform 0.1s, opacity 0.2s;
+    }
+    .btn:active { transform: scale(0.96); }
+    .btn:disabled { opacity: 0.4; cursor: default; }
+
+    .start-screen, .result-screen {
+      text-align: center; padding: 30px 22px; max-width: 480px;
+    }
+    .start-screen h2, .result-screen h2 { margin-top: 0; }
+    .start-screen p, .result-screen p { color: #b0b0d0; line-height: 1.6; font-size: 0.95rem; }
+    .start-screen .btn { margin-top: 10px; }
+
+    .result-card {
+      background: #22223a; border-radius: 16px; padding: 18px;
+      margin: 14px 0; text-align: left; border: 1px solid #2f2f4f;
+    }
+    .result-card h3 { margin: 0 0 8px; font-size: 1rem; color: #fff; }
+    .metric { margin: 10px 0; }
+    .metric .label { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 5px; }
+    .metric .bar { height: 8px; background: #2a2a4a; border-radius: 4px; overflow: hidden; }
+    .metric .bar > div { height: 100%; border-radius: 4px; transition: width 0.6s ease; }
+    .verdict {
+      text-align: center; padding: 14px; border-radius: 12px;
+      margin: 14px 0; font-weight: 600; font-size: 1rem;
+    }
+
+    .hidden { display: none !important; }
+
+    /* Pinch-zoom engelleme */
+    body { touch-action: pan-y; }
+
+    footer { flex-shrink: 0; text-align: center; padding: 6px; font-size: 0.7rem; color: #55557a; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1>🎨 Renk Körlüğü Testi</h1>
+      <div class="sub">Ishihara tarzı dinamik renk testi</div>
+    </header>
+
+    <div class="progress-wrap" id="progress-wrap">
+      <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+      <div class="step-label" id="step-label">Aşama 0 / 10</div>
+    </div>
+
+    <main id="main">
+      <!-- Başlangıç ekranı -->
+      <div class="start-screen" id="start-screen">
+        <h2>Hoş Geldiniz</h2>
+        <p>
+          Bu test 10 aşamadan oluşur. İlk 5 aşamada plaka içinde <strong>farklı renkteki daireyi bulup dokunmanız</strong>,
+          son 5 aşamada ise noktalar arasına gizlenmiş <strong>sayıyı yazıp onaylamanız</strong> istenecektir.
+        </p>
+        <p>Sonuçlar klinik teşhis değil, yönlendirici bir analizdir.</p>
+        <button class="btn" id="start-btn">Testi Başlat</button>
+      </div>
+
+      <!-- Test ekranı -->
+      <div class="hidden" id="test-screen" style="width:100%; display:flex; flex-direction:column; align-items:center;">
+        <div id="plate-container">
+          <svg id="plate-svg" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg"></svg>
+        </div>
+        <div class="question-text" id="question-text"></div>
+        <div class="input-row hidden" id="input-row">
+          <input type="number" inputmode="numeric" min="1" max="99" id="answer-input" placeholder="Sayı (1-99)" />
+          <button class="btn" id="submit-btn">Onayla</button>
+        </div>
+      </div>
+
+      <!-- Sonuç ekranı -->
+      <div class="hidden result-screen" id="result-screen">
+        <h2>Test Sonucu</h2>
+        <div id="verdict-box" class="verdict"></div>
+        <div id="metrics-container"></div>
+        <button class="btn" id="restart-btn" style="margin-top:10px;">Tekrar Dene</button>
+      </div>
+    </main>
+
+    <footer>Renk Körlüğü Testi PWA • v1.0</footer>
+  </div>
+
+<script>
+/* ============================================================
+   RENK KÖRLÜĞÜ TESTİ - ÇEKİRDEK MANTIK
+   ============================================================ */
+
+// ---------- Renk paleti algoritmaları ----------
+// Her palet türü: arka plan noktaları + gizli şeklin noktaları
+// Renk körlüğü tipine göre ayırt edilebilirlik zorlaştırılır.
+
+const PALETTES = {
+  // Normal görme: güçlü kontrast
+  normal: {
+    bg:    ['#7a9e4e', '#8fb35a', '#a3c46b', '#6d8f42', '#b0cc7a'],
+    figure:['#c0392b', '#e74c3c', '#d35400', '#e67e22', '#a93226']
+  },
+  // Kırmızı-yeşil körlüğü (protan/deutan): kırmızı & yeşil aynı parlaklıkta
+  redGreen: {
+    bg:    ['#a8a85c', '#b5b56a', '#9c9c52', '#c0c078', '#b0b060'],
+    figure:['#8a8a40', '#96964a', '#7e7e38', '#a2a256', '#909046']
+  },
+  // Mavi-sarı körlüğü (tritan): mavi & sarı yakınlaşır
+  blueYellow: {
+    bg:    ['#5a8fa8', '#6a9fb5', '#4e7f98', '#7aafc5', '#5f94ab'],
+    figure:['#8fb0c0', '#9cbccb', '#82a3b5', '#a8c5d3', '#97b7c7']
+  },
+  // Tam renk körlüğü (monokromat): sadece parlaklık farkı
+  total: {
+    bg:    ['#8a8a8a', '#9a9a9a', '#7a7a7a', '#a5a5a5', '#909090'],
+    figure:['#606060', '#555555', '#6a6a6a', '#4a4a4a', '#707070']
+  }
+};
+
+const PALETTE_KEYS = ['normal', 'redGreen', 'blueYellow', 'total'];
+
+// ---------- Yardımcı fonksiyonlar ----------
+function rand(min, max) { return Math.random() * (max - min) + min; }
+function randInt(min, max) { return Math.floor(rand(min, max + 1)); }
+function pick(arr) { return arr[randInt(0, arr.length - 1)]; }
+
+// ---------- Sayı -> nokta maskesi (bitmap) ----------
+// 1-99 arası sayılar için düşük çözünürlüklü bitmap üretir.
+const FONT_MAP = {
+  '0':["111","101","101","101","111"],
+  '1':["010","110","010","010","111"],
+  '2':["111","001","111","100","111"],
+  '3':["111","001","111","001","111"],
+  '4':["101","101","111","001","001"],
+  '5':["111","100","111","001","111"],
+  '6':["111","100","111","101","111"],
+  '7':["111","001","010","010","010"],
+  '8':["111","101","111","101","111"],
+  '9':["111","101","111","001","111"]
+};
+
+function buildNumberMask(numStr) {
+  // Her rakam 3x5, aralarında 1 sütun boşluk
+  const rows = 5;
+  const chars = numStr.split('');
+  const width = chars.length * 3 + (chars.length - 1);
+  const grid = Array.from({ length: rows }, () => Array(width).fill(0));
+  let offset = 0;
+  for (const ch of chars) {
+    const bm = FONT_MAP[ch];
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < 3; c++) {
+        if (bm[r][c] === '1') grid[r][offset + c] = 1;
+      }
+    }
+    offset += 4; // 3 + 1 boşluk
+  }
+  return { grid, rows, cols: width };
+}
+
+// ---------- Plaka üretimi ----------
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const PLATE_SIZE = 400;
+const CENTER = PLATE_SIZE / 2;
+
+// Sayı gizleme aşaması için plaka
+function renderNumberPlate(svg, number, paletteKey) {
+  svg.innerHTML = '';
+  const palette = PALETTES[paletteKey];
+  const mask = buildNumberMask(String(number));
+
+  // Nokta yarıçapı
+  const dotR = rand(4.2, 5.2);
+  const step = dotR * 2 + rand(1.2, 2.2);
+
+  // Sayıyı plakaya sığdırmak için ölçek
+  const targetW = PLATE_SIZE * 0.55;
+  const targetH = PLATE_SIZE * 0.55;
+  const cellW = targetW / mask.cols;
+  const cellH = targetH / mask.rows;
+  const cell = Math.min(cellW, cellH);
+  const numW = mask.cols * cell;
+  const numH = mask.rows * cell;
+  const numX = CENTER - numW / 2;
+  const numY = CENTER - numH / 2;
+
+  // Noktaları dairesel plaka içine yerleştir
+  const dots = [];
+  for (let y = dotR; y < PLATE_SIZE - dotR; y += step) {
+    for (let x = dotR; x < PLATE_SIZE - dotR; x += step) {
+      // Jitter
+      const jx = x + rand(-step * 0.3, step * 0.3);
+      const jy = y + rand(-step * 0.3, step * 0.3);
+      // Daire içinde mi?
+      const dx = jx - CENTER, dy = jy - CENTER;
+      if (dx * dx + dy * dy > (CENTER - dotR - 2) ** 2) continue;
+
+      // Sayı maskesinde mi?
+      let inFigure = false;
+      if (jx >= numX && jx < numX + numW && jy >= numY && jy < numY + numH) {
+        const mc = Math.floor((jx - numX) / cell);
+        const mr = Math.floor((jy - numY) / cell);
+        if (mr >= 0 && mr < mask.rows && mc >= 0 && mc < mask.cols && mask.grid[mr][mc] === 1) {
+          inFigure = true;
+        }
+      }
+      dots.push({ x: jx, y: jy, r: dotR * rand(0.85, 1.15), inFigure });
+    }
+  }
+
+  // Çiz
+  for (const d of dots) {
+    const c = document.createElementNS(SVG_NS, 'circle');
+    c.setAttribute('cx', d.x.toFixed(2));
+    c.setAttribute('cy', d.y.toFixed(2));
+    c.setAttribute('r', d.r.toFixed(2));
+    c.setAttribute('fill', d.inFigure ? pick(palette.figure) : pick(palette.bg));
+    svg.appendChild(c);
+  }
+}
+
+// Dokunma aşaması için plaka: farklı renkteki hedef daireyi gizle
+function renderTapPlate(svg, paletteKey, onTargetTap) {
+  svg.innerHTML = '';
+  const palette = PALETTES[paletteKey];
+  const dotR = rand(4.2, 5.2);
+  const step = dotR * 2 + rand(1.2, 2.2);
+
+  // Hedef daire konumu (merkeze yakın, ama rastgele)
+  const angle = rand(0, Math.PI * 2);
+  const dist = rand(20, 90);
+  const targetX = CENTER + Math.cos(angle) * dist;
+  const targetY = CENTER + Math.sin(angle) * dist;
+  const targetR = rand(16, 22);
+
+  const dots = [];
+  for (let y = dotR; y < PLATE_SIZE - dotR; y += step) {
+    for (let x = dotR; x < PLATE_SIZE - dotR; x += step) {
+      const jx = x + rand(-step * 0.3, step * 0.3);
+      const jy = y + rand(-step * 0.3, step * 0.3);
+      const dx = jx - CENTER, dy = jy - CENTER;
+      if (dx * dx + dy * dy > (CENTER - dotR - 2) ** 2) continue;
+
+      // Hedef daire içinde mi?
+      const tdx = jx - targetX, tdy = jy - targetY;
+      const inTarget = (tdx * tdx + tdy * tdy) <= targetR * targetR;
+      dots.push({ x: jx, y: jy, r: dotR * rand(0.85, 1.15), inTarget });
+    }
+  }
+
+  for (const d of dots) {
+    const c = document.createElementNS(SVG_NS, 'circle');
+    c.setAttribute('cx', d.x.toFixed(2));
+    c.setAttribute('cy', d.y.toFixed(2));
+    c.setAttribute('r', d.r.toFixed(2));
+    c.setAttribute('fill', d.inTarget ? pick(palette.figure) : pick(palette.bg));
+    svg.appendChild(c);
+  }
+
+  // Görünmez tıklama alanı (SVG üzerinde overlay) — koordinat dönüşümü için
+  // SVG 400x400 viewBox, CSS boyutu farklı olabilir. Container üzerinden yakalayacağız.
+  return { targetX, targetY, targetR };
+}
+
+// ---------- Test durumu ----------
+const state = {
+  step: 0,
+  totalSteps: 10,
+  questions: [],   // {type:'tap'|'number', palette, answer, ...}
+  results: [],     // {palette, correct}
+  current: null
+};
+
+// 10 aşama: 5 tap + 5 number, paletler rastgele dağıtılır
+function buildQuestions() {
+  const types = [];
+  for (let i = 0; i < 5; i++) types.push('tap');
+  for (let i = 0; i < 5; i++) types.push('number');
+  // karıştır
+  for (let i = types.length - 1; i > 0; i--) {
+    const j = randInt(0, i);
+    [types[i], types[j]] = [types[j], types[i]];
+  }
+
+  // Paletler: her palette en az 2 kez, toplam 10
+  const palettes = [];
+  while (palettes.length < 10) {
+    palettes.push(pick(PALETTE_KEYS));
+  }
+  // Denge: her palette en az 2
+  PALETTE_KEYS.forEach(pk => {
+    let count = palettes.filter(p => p === pk).length;
+    while (count < 2) {
+      const idx = randInt(0, 9);
+      palettes[idx] = pk;
+      count = palettes.filter(p => p === pk).length;
+    }
+  });
+
+  return types.map((type, i) => ({
+    type,
+    palette: palettes[i],
+    answer: type === 'number' ? randInt(1, 99) : null
+  }));
+}
+
+// ---------- UI elemanları ----------
+const el = {
+  startScreen: document.getElementById('start-screen'),
+  testScreen: document.getElementById('test-screen'),
+  resultScreen: document.getElementById('result-screen'),
+  startBtn: document.getElementById('start-btn'),
+  restartBtn: document.getElementById('restart-btn'),
+  plateSvg: document.getElementById('plate-svg'),
+  plateContainer: document.getElementById('plate-container'),
+  questionText: document.getElementById('question-text'),
+  inputRow: document.getElementById('input-row'),
+  answerInput: document.getElementById('answer-input'),
+  submitBtn: document.getElementById('submit-btn'),
+  progressFill: document.getElementById('progress-fill'),
+  stepLabel: document.getElementById('step-label'),
+  verdictBox: document.getElementById('verdict-box'),
+  metricsContainer: document.getElementById('metrics-container')
+};
+
+// ---------- Aşama yükleme ----------
+let currentTapHandler = null;
+
+function loadStep() {
+  if (state.step >= state.totalSteps) {
+    showResults();
+    return;
+  }
+  const q = state.questions[state.step];
+  state.current = q;
+
+  // Progress
+  el.progressFill.style.width = ((state.step) / state.totalSteps * 100) + '%';
+  el.stepLabel.textContent = `Aşama ${state.step + 1} / ${state.totalSteps}`;
+
+  // Input gizle
+  el.inputRow.classList.add('hidden');
+  el.answerInput.value = '';
+
+  // Eski handler temizle
+  if (currentTapHandler) {
+    el.plateContainer.removeEventListener('click', currentTapHandler);
+    currentTapHandler = null;
+  }
+
+  if (q.type === 'tap') {
+    el.questionText.textContent = 'Plaka içindeki FARKLI renkteki daireyi bulun ve dokunun.';
+    const target = renderTapPlate(el.plateSvg, q.palette);
+    q.target = target;
+
+    // Tıklama yakalama: container üzerinde, koordinatları SVG'ye dönüştür
+    currentTapHandler = (ev) => {
+      const rect = el.plateContainer.getBoundingClientRect();
+      const px = (ev.clientX - rect.left) / rect.width * PLATE_SIZE;
+      const py = (ev.clientY - rect.top) / rect.height * PLATE_SIZE;
+      const dx = px - target.targetX;
+      const dy = py - target.targetY;
+      const hit = (dx * dx + dy * dy) <= (target.targetR + 10) ** 2;
+      handleAnswer(hit, q);
+    };
+    el.plateContainer.addEventListener('click', currentTapHandler, { once: true });
+
+  } else {
+    el.questionText.textContent = 'Noktalar arasına gizlenmiş SAYIYI girin (1-99).';
+    renderNumberPlate(el.plateSvg, q.answer, q.palette);
+    el.inputRow.classList.remove('hidden');
+    setTimeout(() => el.answerInput.focus(), 100);
+  }
+}
+
+// ---------- Cevap işleme ----------
+function handleAnswer(correct, q) {
+  state.results.push({ palette: q.palette, correct: !!correct, type: q.type });
+  state.step++;
+  // kısa geri bildirim
+  flashFeedback(correct);
+  setTimeout(loadStep, 350);
+}
+
+function flashFeedback(correct) {
+  const color = correct ? '#2ecc71' : '#e74c3c';
+  el.plateContainer.style.boxShadow = `0 0 0 6px ${color}, 0 8px 30px rgba(0,0,0,0.5)`;
+  setTimeout(() => {
+    el.plateContainer.style.boxShadow = '0 8px 30px rgba(0,0,0,0.5)';
+  }, 300);
+}
+
+// ---------- Sayı gönderimi ----------
+el.submitBtn.addEventListener('click', submitNumber);
+el.answerInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') submitNumber();
+});
+function submitNumber() {
+  const q = state.current;
+  if (!q || q.type !== 'number') return;
+  const val = parseInt(el.answerInput.value, 10);
+  if (isNaN(val) || val < 1 || val > 99) {
+    el.answerInput.focus();
+    return;
+  }
+  const correct = val === q.answer;
+  el.submitBtn.disabled = true;
+  handleAnswer(correct, q);
+  setTimeout(() => { el.submitBtn.disabled = false; }, 400);
+}
+
+// ---------- Sonuç analizi ----------
+function analyzeResults() {
+  const byPalette = {};
+  PALETTE_KEYS.forEach(k => byPalette[k] = { total: 0, correct: 0 });
+  for (const r of state.results) {
+    byPalette[r.palette].total++;
+    if (r.correct) byPalette[r.palette].correct++;
+  }
+  const metrics = {};
+  PALETTE_KEYS.forEach(k => {
+    const t = byPalette[k].total || 1;
+    const acc = byPalette[k].correct / t; // 0..1
+    const err = 1 - acc;
+    metrics[k] = { total: byPalette[k].total, correct: byPalette[k].correct, accuracy: acc, errorRate: err };
+  });
+  return metrics;
+}
+
+const PALETTE_NAMES = {
+  normal: 'Normal Görme',
+  redGreen: 'Kırmızı-Yeşil Körlüğü',
+  blueYellow: 'Mavi-Sarı Körlüğü',
+  total: 'Tam Renk Körlüğü'
+};
+const PALETTE_COLORS = {
+  normal: '#2ecc71',
+  redGreen: '#e74c3c',
+  blueYellow: '#f1c40f',
+  total: '#9b59b6'
+};
+
+function showResults() {
+  el.progressFill.style.width = '100%';
+  el.stepLabel.textContent = 'Test Tamamlandı';
+  el.testScreen.classList.add('hidden');
+  el.resultScreen.classList.remove('hidden');
+
+  const m = analyzeResults();
+
+  // Şüpheli tip: en yüksek hata oranı, ama normal için eşik
+  // Klinik yaklaşım: normal görme hatası düşük olmalı (<0.2)
+  const normalErr = m.normal.errorRate;
+  let verdict = '';
+  let verdictColor = '#2ecc71';
+
+  const suspects = [
+    { key: 'redGreen', err: m.redGreen.errorRate },
+    { key: 'blueYellow', err: m.blueYellow.errorRate },
+    { key: 'total', err: m.total.errorRate }
+  ].sort((a, b) => b.err - a.err);
+
+  const worst = suspects[0];
+  // Eşik: eğer normal hata düşükse ve diğerleri yüksekse şüphe
+  if (normalErr <= 0.34 && worst.err >= 0.5) {
+    verdict = `Şüpheli: ${PALETTE_NAMES[worst.key]} (${Math.round(worst.err * 100)}% hata)`;
+    verdictColor = PALETTE_COLORS[worst.key];
+  } else if (worst.err >= 0.5 && normalErr >= 0.5) {
+    verdict = 'Belirgin renk ayrım güçlüğü tespit edildi. Kapsamlı değerlendirme önerilir.';
+    verdictColor = '#e67e22';
+  } else {
+    verdict = 'Normal görme aralığında görünüyorsunuz. 🎉';
+    verdictColor = '#2ecc71';
+  }
+
+  el.verdictBox.textContent = verdict;
+  el.verdictBox.style.background = verdictColor + '22';
+  el.verdictBox.style.color = verdictColor;
+  el.verdictBox.style.border = `1px solid ${verdictColor}55`;
+
+  // Metrikler
+  el.metricsContainer.innerHTML = '';
+  PALETTE_KEYS.forEach(k => {
+    const d = m[k];
+    const pct = Math.round(d.accuracy * 100);
+    const card = document.createElement('div');
+    card.className = 'result-card';
+    card.innerHTML = `
+      <h3>${PALETTE_NAMES[k]}</h3>
+      <div class="metric">
+        <div class="label"><span>Doğruluk</span><span>${pct}% (${d.correct}/${d.total})</span></div>
+        <div class="bar"><div style="width:${pct}%;background:${PALETTE_COLORS[k]}"></div></div>
+      </div>
+      <div class="metric">
+        <div class="label"><span>Hata Oranı</span><span>${Math.round(d.errorRate * 100)}%</span></div>
+        <div class="bar"><div style="width:${Math.round(d.errorRate * 100)}%;background:#e74c3c"></div></div>
+      </div>
+    `;
+    el.metricsContainer.appendChild(card);
+  });
+}
+
+// ---------- Başlat / Yeniden başlat ----------
+function startTest() {
+  state.step = 0;
+  state.results = [];
+  state.questions = buildQuestions();
+  el.startScreen.classList.add('hidden');
+  el.resultScreen.classList.add('hidden');
+  el.testScreen.classList.remove('hidden');
+  loadStep();
+}
+
+el.startBtn.addEventListener('click', startTest);
+el.restartBtn.addEventListener('click', startTest);
+
+// ---------- Service Worker ----------
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(err => {
+      console.warn('SW kayıt hatası:', err);
+    });
+  });
+}
+
+// ---------- Pinch-zoom engelleme (iOS) ----------
+document.addEventListener('gesturestart', e => e.preventDefault());
+document.addEventListener('gesturechange', e => e.preventDefault());
+document.addEventListener('gestureend', e => e.preventDefault());
+// Çift dokunma zoom engelleme
+let lastTouch = 0;
+document.addEventListener('touchend', e => {
+  const now = Date.now();
+  if (now - lastTouch <= 300) e.preventDefault();
+  lastTouch = now;
+}, { passive: false });
+</script>
+</body>
+</html>
